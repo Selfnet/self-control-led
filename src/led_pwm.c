@@ -1,4 +1,3 @@
-
 #include "led_pwm.h"
 
 #include <string.h>
@@ -264,10 +263,53 @@ void led_step(RGB_Led_State *led)
             led->time = 0;
         }
     }
+    
+    else if(led->mode == 7) //police
+    {
+        strobe_police(led);
+    }
 
 }
 
-
+void strobe_police(RGB_LedState *led)
+{
+    led->time++;
+        if(0 <= led->time  and led->time < led->std_time/5)
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 255;
+        }
+        
+        else if(led->std_time/5 <= led->time  and led->time < 2 * led->std_time/5 )
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 0;
+        }
+        
+        else if(2* led->std_time/5 <= led->time  and led->time < 3* led->std_time/5 )
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 255;
+        }
+        
+        else if(3* led->std_time/5 <= led->time  and led->time < led->std_time )
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 0;
+        }
+        
+        else if(led->time=led->std_time)
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 0;
+            led->time = 0;
+        }
+}
 
 // hardware fade
 void fade_rnd_RGB(RGB_Led_State *led)
