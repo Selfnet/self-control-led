@@ -1,6 +1,9 @@
 
 #include "stm32f10x.h"
 
+#include "can.h"
+#include "led_pwm.h"
+
 /**
   * @brief  Configures the CAN.
   * @param  None
@@ -82,4 +85,72 @@ void CAN_config(void)
     //  Enable CAN Interrupt
     CAN_ITConfig(CAN1, CAN_IT_FMP0, ENABLE);
 }
+
+
+void prozess_can_it(void)
+{
+    CanRxMsg RxMessage;
+    /*RxMessage.StdId=0x00;
+    RxMessage.IDE=CAN_Id_Standard; // STD -> 11bit ID | EXT -> 11+18Bit ID
+    //Remote transmission request
+    RxMessage.RTR=0;
+    //Data length code
+    RxMessage.DLC=0;
+    RxMessage.Data[0]=0x00;
+    RxMessage.Data[1]=0x00;*/
+    CAN_Receive(CAN1, CAN_FIFO0, &RxMessage);
+
+    //nicht von mir
+    if( RxMessage.StdId != CAN_ID )
+    {
+        LED_Toggle(1);
+        // data[0] == led
+        // data[1] == mode
+        // ...
+        int id = RxMessage.Data[0];
+        if( 0 <= id && id >= 3 ) //um welche led geht es
+        {
+            leds[id].mode = RxMessage.Data[1];
+            if( leds[id].mode == 1 ) //master - slave mode
+                leds[id].master = RxMessage.Data[2];
+            else if( leds[id].mode == 2)
+            {
+                leds[id].r = RxMessage.Data[2];
+                leds[id].g = RxMessage.Data[3];
+                leds[id].b = RxMessage.Data[4];
+            }
+            else if( leds[id].mode == 3) //fade to color
+            {
+                leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
+                leds[id].target_r = RxMessage.Data[4];
+                leds[id].target_g = RxMessage.Data[5];
+                leds[id].target_b = RxMessage.Data[6];
+            }
+            else if( leds[id].mode == 4) // auto-rnd mode
+            {
+                leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
+                //startwert setzen da sonst nicht anfängt zu faden
+                led.change_r = (float)((rand()% 5+1))/led.std_time;
+                led.change_g = (float)((rand()% 5+1))/led.std_time;
+                led.change_b = (float)((rand()% 5+1))/led.std_time;
+            }
+            else if( leds[id].mode == 5 || leds[id].mode == 6 )
+            {
+                leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
+            }
+        }
+    }
+}
+
+    /// TODO add USB send (when buffer overflow is fixed)
+    /*memcpy(send_string+0 , "Can: ", 5);
+    memcpy(send_string+4 , &RxMessage.StdId, 1);
+    memcpy(send_string+5 , ",", 1);
+    memcpy(send_string+6 , &RxMessage.Data[0], 1);
+    memcpy(send_string+7 , ",", 1);
+    memcpy(send_string+8 , &RxMessage.Data[1], 1);
+    memcpy(send_string+9 , "\n",1);
+    send_string[10] = 0x0;
+    VCP_DataTx(send_string, 10);*/
+
 

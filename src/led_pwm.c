@@ -46,7 +46,8 @@ void init_timer(void)
 
 void initalize_leds(void)
 {
-    leds[0].mode = 5;
+    leds[0].mode = 1;
+    leds[0].master = 3;
     leds[0].r = 255;
     leds[0].g = 0;
     leds[0].b = 0;
@@ -59,8 +60,8 @@ void initalize_leds(void)
     leds[0].time = 256;
     leds[0].std_time = 50;
 
-    leds[1].mode = 5;
-    leds[1].master = 0;
+    leds[1].mode = 1;
+    leds[1].master = 3;
     leds[1].r = 255;
     leds[1].g = 0;
     leds[1].b = 0;
@@ -73,8 +74,8 @@ void initalize_leds(void)
     leds[1].time = 256;
     leds[1].std_time = 50;
 
-    leds[2].mode = 5;
-    leds[2].master = 0;
+    leds[2].mode = 1;
+    leds[2].master = 3;
     leds[2].r = 255;
     leds[2].g = 0;
     leds[2].b = 0;
@@ -227,16 +228,43 @@ void led_step(RGB_Led_State *led)
         led->g = leds[led->master].g;
         led->b = leds[led->master].b;
     }
+    else if(led->mode == 2) //set fixed color
+    {
+        //pass nothing to do, rgb should be set
+    }
+    else if(led->mode == 4) //set rnd color
+    {
+        led->time++;
+        if(led->time >= led->std_time)
+        {
+            led->r = rand()%255;
+            led->g = rand()%255;
+            led->b = rand()%255;
+            led->time = 0;
+        }
+    }
     else if(led->mode == 5)
     {
         fade_rnd_RGB(led);
     }
-    else if(led->mode == 4) //set rnd color
+    else if(led->mode == 6) //strobe
     {
-        led->r = rand()%255;
-        led->g = rand()%255;
-        led->b = rand()%255;
+        led->time++;
+        if(led->time == led->std_time)
+        {
+            led->r = 255;
+            led->g = 255;
+            led->b = 255;
+        }
+        else if(led->time >= led->std_time)
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 0;
+            led->time = 0;
+        }
     }
+
 }
 
 

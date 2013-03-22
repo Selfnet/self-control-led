@@ -77,7 +77,7 @@ void SysTickStop(void)
 int main(void)
 {
     /* Button Init */
-    button_init();
+    //button_init(); // wird für pwm verwendet
 
     /* LED Init */
     LED_init();
