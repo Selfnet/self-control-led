@@ -232,6 +232,26 @@ void led_step(RGB_Led_State *led)
     {
         //pass nothing to do, rgb should be set
     }
+    else if(led->mode == 3) //fade to fixed color
+    {
+        if(led->time == 0) //start fading
+        {
+            led->change_r = (led->target_r - led->r)/led->std_time;
+            led->change_g = (led->target_g - led->g)/led->std_time;
+            led->change_b = (led->target_b - led->b)/led->std_time;
+        }
+
+        led->r += led->change_r;
+        led->g += led->change_g;
+        led->b += led->change_b;
+
+        led->time++;
+        if(led->time >= led->std_time)
+        {
+            led->time = 0;
+            led->mode = 2; //stop fading
+        }
+    }
     else if(led->mode == 4) //set rnd color
     {
         led->time++;
@@ -250,7 +270,7 @@ void led_step(RGB_Led_State *led)
     else if(led->mode == 6) //strobe
     {
         led->time++;
-        if(led->time == led->std_time)
+        if(led->time == (int)led->change_r)
         {
             led->r = 255;
             led->g = 255;
@@ -264,9 +284,93 @@ void led_step(RGB_Led_State *led)
             led->time = 0;
         }
     }
+    else if(led->mode == 7) //circle
+    {
+    }
+    else if(led->mode == 8) //fade to master TODO
+    {
+        if(led->time == 0)
+        {
+            //wait for master
+            if(leds[led->master].data == 2 || leds[led->master].data == 1) // master fertig kann los gehn
+            {
+                //set color
+                led->data = 1;
+                led->target_r = leds[led->master].r;
+                led->target_g = leds[led->master].g;
+                led->target_b = leds[led->master].b;
+
+                led->change_r = (float)(led->target_r - led->r)/led->std_time;
+                led->change_g = (float)(led->target_g - led->g)/led->std_time;
+                led->change_b = (float)(led->target_b - led->b)/led->std_time;
+            }
+        }
+
+        if(led->data == 1)
+        {
+            led->r += led->change_r;
+            led->g += led->change_g;
+            led->b += led->change_b;
+            led->time++;
+        }
+
+        if(led->time >= led->std_time)
+        {
+            led->time = 0;
+            led->data = 2;
+        }
+    }
+    else if(led->mode == 9) // set hsv col
+    {
+    }
+    else if(led->mode == 10) //strobe police
+    {
+        strobe_police(led);
+    }
 
 }
 
+
+
+void strobe_police(RGB_LedState *led)
+{
+    led->time++;
+        if(0 <= led->time  and led->time < led->std_time/5)
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 255;
+        }
+
+        else if(led->std_time/5 <= led->time  and led->time < 2 * led->std_time/5 )
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 0;
+        }
+
+        else if(2* led->std_time/5 <= led->time  and led->time < 3* led->std_time/5 )
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 255;
+        }
+
+        else if(3* led->std_time/5 <= led->time  and led->time < led->std_time )
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 0;
+        }
+
+        else if(led->time=led->std_time)
+        {
+            led->r = 0;
+            led->g = 0;
+            led->b = 0;
+            led->time = 0;
+        }
+}
 
 
 // hardware fade
@@ -477,4 +581,120 @@ void _update_PWM(void)
 }
 
 
+
+/*******************************************************************************
+ * Function HSV2RGB
+ * Description: Converts an HSV color value into its equivalen in the RGB color space.
+ * Copyright 2010 by George Ruinelli
+ * The code I used as a source is from http://www.cs.rit.edu/~ncs/color/t_convert.html
+ * Parameters:
+ *   1. struct with HSV color (source)
+ *   2. pointer to struct RGB color (target)
+ * Notes:
+ *   - r, g, b values are from 0..255
+ *   - h = [0,360], s = [0,255], v = [0,255]
+ *   - NB: if s == 0, then h = 0 (undefined)
+ ******************************************************************************/
+void HSV2RGB__(RGB_Led_State *led, float h, float s, float v)
+{
+    float r,g,b;
+
+    int i;
+    float f, p, q, t;
+
+    if( s == 0 ) 
+    {
+        led->r = led->g = led->b = v;
+        return;
+    }
+
+    h /= 60;				// sector 0 to 5
+    i = floor( h );
+    f = h - i;
+    p = v * ( 1 - s );
+    q = v * ( 1 - s * f );
+    t = v * ( 1 - s * ( 1 - f ) );
+
+    switch( i )
+    {
+        case 0:
+        r = v; g = t; b = p; break;
+
+        case 1:
+        r = q; g = v; b = p; break;
+
+        case 2:
+        r = p; g = v; b = t; break;
+
+        case 3:
+        r = p; g = q; b = v; break;
+
+        case 4:
+        r = t; g = p; b = v; break;
+
+        default:
+        r = v; g = p; b = q; break;				// case 5:
+    }
+
+    led->r = r*255;										// Auf 8 Bit RGB skalieren, nacher nur noch kopieren
+    led->g = g*255;
+    led->b = b*255;
+
+}
+
+
+void HSV2RGB(float h, float s, float v)
+{
+    int i;
+    float f, p, q, t;
+    float r,g,b;
+
+    s /=255;
+
+    if( s == 0 )
+    { // achromatic (grey)
+        r = g = b = v;
+        return;
+    }
+
+    h /= 60;            // sector 0 to 5
+    i = floor( h );
+    f = h - i;            // factorial part of h
+    p = (unsigned char)(v * ( 1 - s ));
+    q = (unsigned char)(v * ( 1 - s * f ));
+    t = (unsigned char)(v * ( 1 - s * ( 1 - f ) ));
+
+    switch( i ) {
+        case 0:
+            r = v;
+            g = t;
+            b = p;
+        break;
+        case 1:
+            r = q;
+            g = v;
+            b = p;
+        break;
+        case 2:
+            r = p;
+            g = v;
+            b = t;
+        break;
+        case 3:
+            r = p;
+            g = q;
+            b = v;
+        break;
+        case 4:
+            r = t;
+            g = p;
+            b = v;
+        break;
+        default:        // case 5:
+            r = v;
+            g = p;
+            b = q;
+        break;
+    }
+}
 

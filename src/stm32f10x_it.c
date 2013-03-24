@@ -201,13 +201,45 @@ void SysTick_Handler(void)
 // 
 
 
-void TIM1_UP_IRQHandler(void) 
+void TIM1_UP_IRQHandler(void)
 {
     TIM_ClearITPendingBit(TIM1, TIM_IT_Update );
-    led_step(&leds[0]);
-    led_step(&leds[1]);
-    led_step(&leds[2]);
-    led_step(&leds[3]);
+
+    if(leds[0].mode == 7) //circle
+    {
+        leds[0].time++;
+        if(leds[0].time >= leds[0].std_time)
+        {
+            float r = leds[0].r;
+            float g = leds[0].g;
+            float b = leds[0].b;
+
+            leds[0].r = leds[1].r;
+            leds[0].g = leds[1].g;
+            leds[0].b = leds[1].b;
+
+            leds[1].r = leds[2].r;
+            leds[1].g = leds[2].g;
+            leds[1].b = leds[2].b;
+
+            leds[2].r = leds[3].r;
+            leds[2].g = leds[3].g;
+            leds[2].b = leds[3].b;
+
+            leds[3].r = r;
+            leds[3].g = g;
+            leds[3].b = b;
+
+            leds[0].time  = 0;
+        }
+    }
+    else
+    {
+        led_step(&leds[0]);
+        led_step(&leds[1]);
+        led_step(&leds[2]);
+        led_step(&leds[3]);
+    }
     update_PWM();
 }
 
@@ -226,7 +258,7 @@ void EXTI0_IRQHandler(void) //Button1
     {
         LED_Toggle(1);
     }
-    
+
     //we need to clear line pending bit manually
     EXTI_ClearITPendingBit(EXTI_Line0);
 }

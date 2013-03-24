@@ -25,6 +25,7 @@ struct rgb_led_state_t {
     float target_b;
 
     int mode;
+    int data; //extra data for current mode
     //master which node should be copied
     int master;
 

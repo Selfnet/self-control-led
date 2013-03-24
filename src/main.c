@@ -103,7 +103,10 @@ int main(void)
     VCP_DataTx("Hallo!\n", 7);*/
 
     //Main loop, ohne ethernet gibts hir nix zu tun ;)
-    while(1);
+    while(1)
+    {
+        HSV2RGB( 0.0, .9, .2);
+    }
 }
 
 

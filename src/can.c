@@ -108,7 +108,7 @@ void prozess_can_it(void)
         // data[1] == mode
         // ...
         int id = RxMessage.Data[0];
-        if( 0 <= id && id >= 3 ) //um welche led geht es
+        if( 0 <= id && id <= 3 ) //um welche led geht es
         {
             leds[id].mode = RxMessage.Data[1];
             if( leds[id].mode == 1 ) //master - slave mode
@@ -125,8 +125,9 @@ void prozess_can_it(void)
                 leds[id].target_r = RxMessage.Data[4];
                 leds[id].target_g = RxMessage.Data[5];
                 leds[id].target_b = RxMessage.Data[6];
+                leds[id].time = 0; //start fadeing
             }
-            else if( leds[id].mode == 4) // auto-rnd mode
+            else if( leds[id].mode == 4) // auto fade rnd mode
             {
                 leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
                 //startwert setzen da sonst nicht anfängt zu faden
@@ -134,9 +135,29 @@ void prozess_can_it(void)
                 led.change_g = (float)((rand()% 5+1))/led.std_time;
                 led.change_b = (float)((rand()% 5+1))/led.std_time;
             }
-            else if( leds[id].mode == 5 || leds[id].mode == 6 )
+            else if( leds[id].mode == 5 ) //set rnd
             {
                 leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
+            }
+            else if( leds[id].mode == 6 ) //strobe
+            {
+                leds[id].std_time = (RxMessage.Data[4]<<8)+RxMessage.Data[5];
+                leds[id].change_r = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
+            }
+            else if( leds[id].mode == 7 ) //circle
+            {
+                leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
+            }
+            else if( leds[id].mode == 8 ) // fade to master (start when master is ready)
+            {
+                leds[id].std_time = (RxMessage.Data[3]<<8)+RxMessage.Data[4];
+                leds[id].master = RxMessage.Data[2];
+                leds[id].time = 0;
+            }
+            else if( leds[id].mode == 9 ) //setHSV color
+            {
+                //convert hsv to rgb and set rgb values to led
+                HSV2RGB( &leds[id] , (float)((RxMessage.Data[2]<<8)+(RxMessage.Data[3])), ((float)RxMessage.Data[4]), ((float)RxMessage.Data[5]));
             }
         }
     }
@@ -152,5 +173,4 @@ void prozess_can_it(void)
     memcpy(send_string+9 , "\n",1);
     send_string[10] = 0x0;
     VCP_DataTx(send_string, 10);*/
-
 
