@@ -42,12 +42,14 @@ extern RGB_Led_State leds[4];
 void enable_PWM(void);
 void _update_PWM(void);
 void update_PWM(void);
-int convert_color(unsigned char c);
 void set_RGB(RGB_Led_State *led);
-void fade_rnd_RGB(RGB_Led_State *led);
 void start_fade(RGB_Led_State *led);
 void fade_RGB(RGB_Led_State *led);
 
+void fade_rnd_RGB(RGB_Led_State *led);
+void strobe_police(RGB_Led_State *led);
+
+int convert_color(unsigned char c);
 
 
 //generate lookup table

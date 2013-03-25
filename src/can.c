@@ -87,80 +87,194 @@ void CAN_config(void)
 }
 
 
+/*
+Field name	                        Length (bits)	Purpose
+Start-of-frame	                    1	Denotes the start of frame transmission
+Identifier A	                    11	First part of the (unique) identifier for the data which also represents the message priority
+Substitute remote request (SRR)	    1	Must be recessive (1). Optional
+Identifier extension bit (IDE)	    1	Must be recessive (1). Optional
+Identifier B	                    18	Second part of the (unique) identifier for the data which also represents the message priority
+Remote transmission request (RTR)	1	Must be dominant (0)
+Reserved bits (r0, r1)	            2	Reserved bits (it must be set dominant (0), but accepted as either dominant or recessive)
+Data length code (DLC)*	            4	Number of bytes of data (0–8 bytes)
+Data field	                        0–64 (0-8 bytes)	Data to be transmitted (length dictated by DLC field)
+CRC	                                15	Cyclic redundancy check
+CRC delimiter	                    1	Must be recessive (1)
+ACK slot	                        1	Transmitter sends recessive (1) and any receiver can assert a dominant (0)
+ACK delimiter	                    1	Must be recessive (1)
+End-of-frame (EOF)	                7	Must be recessive (1)
+*/
+
+
+// *** CAN Id Functions
+int getSender(uint32_t ExtId)
+{
+    return (ExtId>>(11+7)) & 0x7ff;
+}
+
+int getRecipient(uint32_t ExtId)
+{
+    return (ExtId>>(7)) & 0x7ff;
+}
+
+int getTyp(uint32_t ExtId)
+{
+    return (ExtId & 0x7f);
+}
+
+void setSender(uint32_t *ExtId , int recipient)
+{
+    *ExtId |= (((uint32_t)recipient) & 0x7ff)<<(11+7);
+}
+
+void setRecipient(uint32_t *ExtId , int recipient)
+{
+    *ExtId |= (((uint32_t)recipient) & 0x7ff)<<7;
+}
+
+void setTyp(uint32_t *ExtId , int recipient)
+{
+    *ExtId |= (((uint32_t)recipient) & 0x7f);
+}
+
+
+// *** erklärung zu can vars ***
+//Sender        = RxMessage.ExtId & 0b11111111111000000000000000000 (11Bit)
+//Empfaenger    = RxMessage.ExtId & 0b00000000000111111111110000000 (11Bit)
+//Type          = RxMessage.ExtId & 0b00000000000000000000001111111 (7Bit)
+//ID-Type       = RxMessage.IDE (CAN_Id_Standard or CAN_Id_Extended) DEFAULT=1 (immer extended)
+//get_set?      = RxMessage.RTR: (1-> SendData (seter) | 0-> Request Data (geter))
+
+// ethernet bytes:
+// SENDER0 | SENDER1 | EMPFAENGER0 | EMPFAENGER1 | TYPE | SEND-REQUEST | DATA0 - DATA7
+
+void send_pong(CanRxMsg RxMessage)
+{
+    //ping request
+    if(getTyp(RxMessage.ExtId) == 0x8 && RxMessage.RTR == CAN_RTR_Remote    )
+    {
+        CanTxMsg TxMessage;
+        TxMessage.IDE = CAN_ID_EXT;                                 //immer extended can frames
+        setRecipient(&TxMessage.ExtId , getSender(RxMessage.ExtId));//empfaenger = absender vom Ping
+        setSender(&TxMessage.ExtId , NODE_CAN_ID);                  //sender (hoeherwaertige bits)
+        //setTyp(&TxMessage.ExtId, 0);                              //type  = 0 (antwort auf ping) [eh schon 0]
+        TxMessage.RTR = CAN_RTR_Data;                               // daten senden
+
+        // alle empfangen daten zurueckschicken
+        TxMessage.DLC = RxMessage.DLC;
+        int i;
+        for(i = 0 ; i < RxMessage.DLC ; i++)
+        {
+            TxMessage.Data[i] = RxMessage.Data[i];
+        }
+        CAN_Transmit(CAN1, &TxMessage);
+    }
+}
+
+void process_can_msg(CanRxMsg RxMessage, int id)
+{
+    if(0 <= id && id <= 3)
+    {
+        leds[id].mode = getTyp(RxMessage.ExtId);
+
+        if( leds[id].mode == 1 ) //master - slave mode
+            leds[id].master = RxMessage.Data[0];
+        else if( leds[id].mode == 2) //set color
+        {
+            leds[id].r = RxMessage.Data[0];
+            leds[id].g = RxMessage.Data[1];
+            leds[id].b = RxMessage.Data[2];
+        }
+        else if( leds[id].mode == 3) //fade to color
+        {
+            leds[id].std_time = (RxMessage.Data[0]<<8)+RxMessage.Data[1];
+            leds[id].target_r = RxMessage.Data[2];
+            leds[id].target_g = RxMessage.Data[3];
+            leds[id].target_b = RxMessage.Data[4];
+            leds[id].time = 0; //start fadeing
+        }
+        else if( leds[id].mode == 4) //set rnd color
+        {
+            leds[id].std_time = (RxMessage.Data[0]<<8)+RxMessage.Data[1];
+        }
+        else if( leds[id].mode == 5 ) // auto fade rnd mode
+        {
+            leds[id].std_time = (RxMessage.Data[0]<<8)+RxMessage.Data[1];
+            //startwert setzen da sonst nicht anfängt zu faden
+            led.change_r = (float)((rand()% 5+1))/led.std_time;
+            led.change_g = (float)((rand()% 5+1))/led.std_time;
+            led.change_b = (float)((rand()% 5+1))/led.std_time;
+        }
+        else if( leds[id].mode == 6 ) //strobe
+        {
+            leds[id].change_r = (RxMessage.Data[0]<<8)+RxMessage.Data[1];
+            leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
+        }
+        else if( leds[id].mode == 7 ) //circle
+        {
+            leds[id].std_time = (RxMessage.Data[0]<<8)+RxMessage.Data[1];
+        }
+        else if( leds[id].mode == 9 ) //setHSV color
+        {
+            //convert hsv to rgb and set rgb values to led
+            HSV2RGB( &leds[id] , (float)((RxMessage.Data[0]<<8)+(RxMessage.Data[1])), ((float)RxMessage.Data[2]), ((float)RxMessage.Data[5]));
+        }
+        else if( leds[id].mode == 10 ) // fade to master (start when master is ready)
+        {
+            leds[id].master = RxMessage.Data[0];
+            leds[id].std_time = (RxMessage.Data[1]<<8)+RxMessage.Data[2];
+            leds[id].time = 0;
+        }
+    }
+}
+
 void prozess_can_it(void)
 {
     CanRxMsg RxMessage;
-    /*RxMessage.StdId=0x00;
-    RxMessage.IDE=CAN_Id_Standard; // STD -> 11bit ID | EXT -> 11+18Bit ID
-    //Remote transmission request
-    RxMessage.RTR=0;
-    //Data length code
-    RxMessage.DLC=0;
-    RxMessage.Data[0]=0x00;
-    RxMessage.Data[1]=0x00;*/
     CAN_Receive(CAN1, CAN_FIFO0, &RxMessage);
 
-    //nicht von mir
-    if( RxMessage.StdId != CAN_ID )
+    if(RxMessage.IDE == CAN_Id_Standard)
     {
-        LED_Toggle(1);
-        // data[0] == led
-        // data[1] == mode
-        // ...
-        int id = RxMessage.Data[0];
-        if( 0 <= id && id <= 3 ) //um welche led geht es
-        {
-            leds[id].mode = RxMessage.Data[1];
-            if( leds[id].mode == 1 ) //master - slave mode
-                leds[id].master = RxMessage.Data[2];
-            else if( leds[id].mode == 2)
-            {
-                leds[id].r = RxMessage.Data[2];
-                leds[id].g = RxMessage.Data[3];
-                leds[id].b = RxMessage.Data[4];
-            }
-            else if( leds[id].mode == 3) //fade to color
-            {
-                leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
-                leds[id].target_r = RxMessage.Data[4];
-                leds[id].target_g = RxMessage.Data[5];
-                leds[id].target_b = RxMessage.Data[6];
-                leds[id].time = 0; //start fadeing
-            }
-            else if( leds[id].mode == 4) // auto fade rnd mode
-            {
-                leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
-                //startwert setzen da sonst nicht anfängt zu faden
-                led.change_r = (float)((rand()% 5+1))/led.std_time;
-                led.change_g = (float)((rand()% 5+1))/led.std_time;
-                led.change_b = (float)((rand()% 5+1))/led.std_time;
-            }
-            else if( leds[id].mode == 5 ) //set rnd
-            {
-                leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
-            }
-            else if( leds[id].mode == 6 ) //strobe
-            {
-                leds[id].std_time = (RxMessage.Data[4]<<8)+RxMessage.Data[5];
-                leds[id].change_r = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
-            }
-            else if( leds[id].mode == 7 ) //circle
-            {
-                leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
-            }
-            else if( leds[id].mode == 8 ) // fade to master (start when master is ready)
-            {
-                leds[id].std_time = (RxMessage.Data[3]<<8)+RxMessage.Data[4];
-                leds[id].master = RxMessage.Data[2];
-                leds[id].time = 0;
-            }
-            else if( leds[id].mode == 9 ) //setHSV color
-            {
-                //convert hsv to rgb and set rgb values to led
-                HSV2RGB( &leds[id] , (float)((RxMessage.Data[2]<<8)+(RxMessage.Data[3])), ((float)RxMessage.Data[4]), ((float)RxMessage.Data[5]));
-            }
-        }
+        //einfach ignorieren, vllt spaeter auch noch was machen...
     }
+    else //das was wir wollen , Extended CanRxMsg
+    {
+        //msg ist an mich ( board ID )
+        if( getRecipient(RxMessage.ExtId) == NODE_CAN_ID || getRecipient(RxMessage.ExtId) == NODE_V0_CAN_ID 
+            || getRecipient(RxMessage.ExtId) == NODE_V1_CAN_ID || getRecipient(RxMessage.ExtId) == NODE_V2_CAN_ID || getRecipient(RxMessage.ExtId) == NODE_V3_CAN_ID )
+        {
+            if( getTyp(RxMessage.ExtId) == 0x8)
+                send_pong(RxMessage);
+            //alle sonderfaelle sind abgearbeitet --> type = modus
+            else
+            {
+                LED_Toggle(1);
+                if(getRecipient(RxMessage.ExtId) == NODE_CAN_ID)
+                {
+                    process_can_msg(RxMessage, 0);
+                    process_can_msg(RxMessage, 1);
+                    process_can_msg(RxMessage, 2);
+                    process_can_msg(RxMessage, 3);
+                }
+                else if(getRecipient(RxMessage.ExtId) == NODE_V0_CAN_ID)
+                {
+                    process_can_msg(RxMessage, 0);
+                }
+                else if(getRecipient(RxMessage.ExtId) == NODE_V1_CAN_ID)
+                {
+                    process_can_msg(RxMessage, 1);
+                }
+                else if(getRecipient(RxMessage.ExtId) == NODE_V2_CAN_ID)
+                {
+                    process_can_msg(RxMessage, 2);
+                }
+                else if(getRecipient(RxMessage.ExtId) == NODE_V3_CAN_ID)
+                {
+                    process_can_msg(RxMessage, 3);
+                }
+            } // end else ping
+        } //end an mich
+    } //end else extended
 }
 
     /// TODO add USB send (when buffer overflow is fixed)

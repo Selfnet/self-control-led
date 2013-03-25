@@ -332,31 +332,31 @@ void led_step(RGB_Led_State *led)
 
 
 
-void strobe_police(RGB_LedState *led)
+void strobe_police(RGB_Led_State *led)
 {
     led->time++;
-        if(0 <= led->time  and led->time < led->std_time/5)
+        if(0 <= led->time && led->time < led->std_time/5)
         {
             led->r = 0;
             led->g = 0;
             led->b = 255;
         }
 
-        else if(led->std_time/5 <= led->time  and led->time < 2 * led->std_time/5 )
+        else if(led->std_time/5 <= led->time && led->time < 2 * led->std_time/5 )
         {
             led->r = 0;
             led->g = 0;
             led->b = 0;
         }
 
-        else if(2* led->std_time/5 <= led->time  and led->time < 3* led->std_time/5 )
+        else if(2* led->std_time/5 <= led->time && led->time < 3* led->std_time/5 )
         {
             led->r = 0;
             led->g = 0;
             led->b = 255;
         }
 
-        else if(3* led->std_time/5 <= led->time  and led->time < led->std_time )
+        else if(3* led->std_time/5 <= led->time && led->time < led->std_time )
         {
             led->r = 0;
             led->g = 0;
