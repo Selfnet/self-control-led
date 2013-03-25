@@ -3,7 +3,6 @@
 
 #include <string.h>
 
-RGB_Led_State led;
 RGB_Led_State leds[4];
 
 void init_timer(void)
@@ -595,61 +594,17 @@ void _update_PWM(void)
  *   - h = [0,360], s = [0,255], v = [0,255]
  *   - NB: if s == 0, then h = 0 (undefined)
  ******************************************************************************/
-void HSV2RGB__(RGB_Led_State *led, float h, float s, float v)
+void HSV2RGB(RGB_Led_State *led, int h0, int s0, int v0)
 {
-    float r,g,b;
-
-    int i;
-    float f, p, q, t;
-
-    if( s == 0 ) 
-    {
-        led->r = led->g = led->b = v;
-        return;
-    }
-
-    h /= 60;				// sector 0 to 5
-    i = floor( h );
-    f = h - i;
-    p = v * ( 1 - s );
-    q = v * ( 1 - s * f );
-    t = v * ( 1 - s * ( 1 - f ) );
-
-    switch( i )
-    {
-        case 0:
-        r = v; g = t; b = p; break;
-
-        case 1:
-        r = q; g = v; b = p; break;
-
-        case 2:
-        r = p; g = v; b = t; break;
-
-        case 3:
-        r = p; g = q; b = v; break;
-
-        case 4:
-        r = t; g = p; b = v; break;
-
-        default:
-        r = v; g = p; b = q; break;				// case 5:
-    }
-
-    led->r = r*255;										// Auf 8 Bit RGB skalieren, nacher nur noch kopieren
-    led->g = g*255;
-    led->b = b*255;
-
-}
-
-
-void HSV2RGB(float h, float s, float v)
-{
+    float h = (float)h0;
+    float s = (float)s0;
+    float v = (float)v0;
+     
     int i;
     float f, p, q, t;
     float r,g,b;
 
-    s /=255;
+    s /=255.0;
 
     if( s == 0 )
     { // achromatic (grey)
@@ -657,7 +612,7 @@ void HSV2RGB(float h, float s, float v)
         return;
     }
 
-    h /= 60;            // sector 0 to 5
+    h /= 60.0;            // sector 0 to 5
     i = floor( h );
     f = h - i;            // factorial part of h
     p = (unsigned char)(v * ( 1 - s ));
@@ -666,34 +621,34 @@ void HSV2RGB(float h, float s, float v)
 
     switch( i ) {
         case 0:
-            r = v;
-            g = t;
-            b = p;
+            led->r = v;
+            led->g = t;
+            led->b = p;
         break;
         case 1:
-            r = q;
-            g = v;
-            b = p;
+            led->r = q;
+            led->g = v;
+            led->b = p;
         break;
         case 2:
-            r = p;
-            g = v;
-            b = t;
+            led->r = p;
+            led->g = v;
+            led->b = t;
         break;
         case 3:
-            r = p;
-            g = q;
-            b = v;
+            led->r = p;
+            led->g = q;
+            led->b = v;
         break;
         case 4:
-            r = t;
-            g = p;
-            b = v;
+            led->r = t;
+            led->g = p;
+            led->b = v;
         break;
         default:        // case 5:
-            r = v;
-            g = p;
-            b = q;
+            led->r = v;
+            led->g = p;
+            led->b = q;
         break;
     }
 }

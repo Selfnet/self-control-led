@@ -201,9 +201,9 @@ void process_can_msg(CanRxMsg RxMessage, int id)
         {
             leds[id].std_time = (RxMessage.Data[0]<<8)+RxMessage.Data[1];
             //startwert setzen da sonst nicht anfängt zu faden
-            led.change_r = (float)((rand()% 5+1))/led.std_time;
-            led.change_g = (float)((rand()% 5+1))/led.std_time;
-            led.change_b = (float)((rand()% 5+1))/led.std_time;
+            leds[id].change_r = (float)((rand()% 5+1))/leds[id].std_time;
+            leds[id].change_g = (float)((rand()% 5+1))/leds[id].std_time;
+            leds[id].change_b = (float)((rand()% 5+1))/leds[id].std_time;
         }
         else if( leds[id].mode == 6 ) //strobe
         {
@@ -216,8 +216,7 @@ void process_can_msg(CanRxMsg RxMessage, int id)
         }
         else if( leds[id].mode == 9 ) //setHSV color
         {
-            //convert hsv to rgb and set rgb values to led
-            HSV2RGB( &leds[id] , (float)((RxMessage.Data[0]<<8)+(RxMessage.Data[1])), ((float)RxMessage.Data[2]), ((float)RxMessage.Data[5]));
+            HSV2RGB( &leds[id] , (int)((RxMessage.Data[0]<<8)+(RxMessage.Data[1])) , ((int)RxMessage.Data[2]) , ((int)RxMessage.Data[3]) );
         }
         else if( leds[id].mode == 10 ) // fade to master (start when master is ready)
         {
