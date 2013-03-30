@@ -227,10 +227,8 @@ void led_step(RGB_Led_State *led)
         led->g = leds[led->master].g;
         led->b = leds[led->master].b;
     }
-    else if(led->mode == 2) //set fixed color
-    {
+    else if(led->mode == 2); //set fixed color
         //pass nothing to do, rgb should be set
-    }
     else if(led->mode == 3) //fade to fixed color
     {
         if(led->time == 0) //start fading
@@ -269,23 +267,23 @@ void led_step(RGB_Led_State *led)
     else if(led->mode == 6) //strobe
     {
         led->time++;
-        if(led->time == (int)led->change_r)
+        if(led->time < ((float)led->std_time)/led->change_r)
         {
-            led->r = 255;
-            led->g = 255;
-            led->b = 255;
+            led->r = led->target_r;
+            led->g = led->target_g;
+            led->b = led->target_b;
         }
-        else if(led->time >= led->std_time)
+        else 
         {
             led->r = 0;
             led->g = 0;
             led->b = 0;
-            led->time = 0;
+
+            if(led->time >= led->std_time)
+                led->time = 0;
         }
     }
-    else if(led->mode == 7) //circle
-    {
-    }
+    else if(led->mode == 7); //circle
     else if(led->mode == 8) //fade to master TODO
     {
         if(led->time == 0)
@@ -319,10 +317,7 @@ void led_step(RGB_Led_State *led)
             led->data = 2;
         }
     }
-    else if(led->mode == 9) // set hsv col
-    {
-    }
-    else if(led->mode == 10) //strobe police
+    else if(led->mode == 9) //strobe police
     {
         strobe_police(led);
     }
