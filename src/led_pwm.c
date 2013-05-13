@@ -260,14 +260,14 @@ void led_step(RGB_Led_State *led)
             led->time = 0;
         }
     }
-    else if(led->mode == 5)
+    else if(led->mode == 5) //random fade
     {
         fade_rnd_RGB(led);
     }
     else if(led->mode == 6) //strobe
     {
         led->time++;
-        if(led->time < ((float)led->std_time)/led->change_r)
+        if(led->time <= ((float)led->std_time)*led->change_r/256.0)
         {
             led->r = led->target_r;
             led->g = led->target_g;
@@ -278,10 +278,9 @@ void led_step(RGB_Led_State *led)
             led->r = 0;
             led->g = 0;
             led->b = 0;
-
-            if(led->time >= led->std_time)
-                led->time = 0;
         }
+        if(led->time >= led->std_time)
+            led->time = 0;
     }
     else if(led->mode == 7); //circle
     else if(led->mode == 8) //fade to master TODO
@@ -531,23 +530,28 @@ static int interp(float val)
     return (int)(low + (up-low) * (val-low));
 }
 
+
 void update_PWM(void)
 {
-    leds[0].cur_r = interp( leds[0].r );
-    leds[0].cur_g = interp( leds[0].g );
-    leds[0].cur_b = interp( leds[0].b );
+    if(leds[0].color_mode == 0x1)
+        HSV2RGB(&leds[0]);
+    else
+        setRGB(&leds[0]);
 
-    leds[1].cur_r = interp( leds[1].r );
-    leds[1].cur_g = interp( leds[1].g );
-    leds[1].cur_b = interp( leds[1].b );
+    if(leds[1].color_mode == 0x1)
+        HSV2RGB(&leds[1]);
+    else
+        setRGB(&leds[1]);
 
-    leds[2].cur_r = interp( leds[2].r );
-    leds[2].cur_g = interp( leds[2].g );
-    leds[2].cur_b = interp( leds[2].b );
+    if(leds[2].color_mode == 0x1)
+        HSV2RGB(&leds[2]);
+    else
+        setRGB(&leds[2]);
 
-    leds[3].cur_r = interp( leds[3].r );
-    leds[3].cur_g = interp( leds[3].g );
-    leds[3].cur_b = interp( leds[3].b );
+    if(leds[3].color_mode == 0x1)
+        HSV2RGB(&leds[3]);
+    else
+        setRGB(&leds[3]);
 
     _update_PWM();
 }
@@ -575,6 +579,13 @@ void _update_PWM(void)
 }
 
 
+void setRGB(RGB_Led_State *led)
+{
+    led->cur_r = interp( led->r );
+    led->cur_g = interp( led->g );
+    led->cur_b = interp( led->b );
+}
+
 
 /*******************************************************************************
  * Function HSV2RGB
@@ -589,21 +600,28 @@ void _update_PWM(void)
  *   - h = [0,360], s = [0,255], v = [0,255]
  *   - NB: if s == 0, then h = 0 (undefined)
  ******************************************************************************/
-void HSV2RGB(RGB_Led_State *led, int h0, int s0, int v0)
+//void HSV2RGB(RGB_Led_State *led, int h0, int s0, int v0)
+void HSV2RGB(RGB_Led_State *led)
 {
-    float h = (float)h0;
-    float s = (float)s0;
-    float v = (float)v0;
+//    float h = (float)h0;
+//    float s = (float)s0;
+//    float v = (float)v0;
+
+    float h = (float)led->r/255*360;
+    float s = (float)led->g;
+    float v = (float)led->b;
+
      
     int i;
     float f, p, q, t;
-    float r,g,b;
 
     s /=255.0;
 
     if( s == 0 )
     { // achromatic (grey)
-        r = g = b = v;
+        led->cur_r = interp(v);
+        led->cur_g = interp(v);
+        led->cur_b = interp(v);
         return;
     }
 
@@ -616,34 +634,34 @@ void HSV2RGB(RGB_Led_State *led, int h0, int s0, int v0)
 
     switch( i ) {
         case 0:
-            led->r = v;
-            led->g = t;
-            led->b = p;
+            led->cur_r = interp(v);
+            led->cur_g = interp(t);
+            led->cur_b = interp(p);
         break;
         case 1:
-            led->r = q;
-            led->g = v;
-            led->b = p;
+            led->cur_r = interp(q);
+            led->cur_g = interp(v);
+            led->cur_b = interp(p);
         break;
         case 2:
-            led->r = p;
-            led->g = v;
-            led->b = t;
+            led->cur_r = interp(p);
+            led->cur_g = interp(v);
+            led->cur_b = interp(t);
         break;
         case 3:
-            led->r = p;
-            led->g = q;
-            led->b = v;
+            led->cur_r = interp(p);
+            led->cur_g = interp(q);
+            led->cur_b = interp(v);
         break;
         case 4:
-            led->r = t;
-            led->g = p;
-            led->b = v;
+            led->cur_r = interp(t);
+            led->cur_g = interp(p);
+            led->cur_b = interp(v);
         break;
         default:        // case 5:
-            led->r = v;
-            led->g = p;
-            led->b = q;
+            led->cur_r = interp(v);
+            led->cur_g = interp(p);
+            led->cur_b = interp(q);
         break;
     }
 }

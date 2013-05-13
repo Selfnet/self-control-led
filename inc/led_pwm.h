@@ -24,12 +24,14 @@ struct rgb_led_state_t {
     float target_g;
     float target_b;
 
+    uint8_t color_mode;
+
     int mode;
     int data; //extra data for current mode
     //master which node should be copied
     int master;
 
-    int time;
+    uint16_t time;
     int std_time;
 };
 

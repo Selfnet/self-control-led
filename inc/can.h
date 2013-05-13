@@ -15,13 +15,14 @@ void setSender(uint32_t *ExtId , int recipient);
 void setRecipient(uint32_t *ExtId , int recipient);
 void setTyp(uint32_t *ExtId , int recipient); */
 
+
 #define getSender(ExtId)    ( ( (ExtId)     & 0xff ) )
 #define getRecipient(ExtId) ( ( (ExtId>>8 ) & 0xff ) )
 #define getTyp(ExtId)       ( ( (ExtId>>16) & 0xff ) )
 
-#define setSender(X)    ( ( (X)     & 0xff ) )
-#define setRecipient(X) ( ( (X<<8)  & 0xff ) )
-#define setType(X)       ( ( (X<<16) & 0xff ) )
+#define setSender(X)        ( ( (X)         & 0xff ) )
+#define setRecipient(X)     ( ( (X<<8)      & 0xff00 ) )
+#define setType(X)          ( ( (X<<16)     & 0xff0000 ) )
 
 //NODE_CAN_ID = 64 = 0x40 = 0b1000000
 #define NODE_CAN_ID 0x40

@@ -141,15 +141,35 @@ void setTyp(uint32_t *ExtId , int recipient)
 */
 
 // *** erklärung zu can vars ***
-//Sender        = RxMessage.ExtId & 0b11111111111000000000000000000 (11Bit)
-//Empfaenger    = RxMessage.ExtId & 0b00000000000111111111110000000 (11Bit)
-//Type          = RxMessage.ExtId & 0b00000000000000000000001111111 (7Bit)
+//Sender        = RxMessage.ExtId & 0b00000111111110000000000000000 (8Bit)
+//Empfaenger    = RxMessage.ExtId & 0b00000000000001111111100000000 (8Bit)
+//Type          = RxMessage.ExtId & 0b00000000000000000000011111111 (8Bit)
 //ID-Type       = RxMessage.IDE (CAN_Id_Standard or CAN_Id_Extended) DEFAULT=1 (immer extended)
-//get_set?      = RxMessage.RTR: (1-> SendData (seter) | 0-> Request Data (geter))
+//RTR           = RxMessage.RTR: immer 1 (nie daten anfragen)
 
 // ethernet bytes:
 // SENDER0 | SENDER1 | EMPFAENGER0 | EMPFAENGER1 | TYPE | SEND-REQUEST | DATA0 - DATA7
 
+
+void send_color(int id)
+{
+    CanTxMsg TxMessage;
+    TxMessage.IDE = CAN_ID_EXT;                                 //immer extended can frames
+    TxMessage.ExtId = CAN_EXT_ID;                               //default ID setzen
+    TxMessage.ExtId |= setSender( NODE_CAN_ID );
+    TxMessage.ExtId |= setType( CAN_PROTO_LED );
+    TxMessage.ExtId |= setRecipient( getSender(RxMessage.ExtId) );
+    TxMessage.RTR = CAN_RTR_Data;
+
+    TxMessage.DLC = 5;
+    TxMessage.Data[0] = leds[id].mode;
+    TxMessage.Data[1] = leds[id].color_mode;
+    TxMessage.Data[2] = leds[id].r;
+    TxMessage.Data[3] = leds[id].g;
+    TxMessage.Data[4] = leds[id].b;
+
+    CAN_Transmit(CAN1, &TxMessage);
+}
 
 void send_pong(CanRxMsg RxMessage)
 {
@@ -181,8 +201,19 @@ void set_led_from_can_msg(CanRxMsg RxMessage, int id)
     {
         leds[id].mode = RxMessage.Data[1];
 
+        leds[id].color_mode = RxMessage.Data[0] >> 4;
+
         if( leds[id].mode == 1 ) //master - slave mode
-            leds[id].master = RxMessage.Data[2];
+        {
+            if( RxMessage.Data[2] & 0b00000001 )
+                leds[id].master = 0;
+            if( RxMessage.Data[2] & 0b00000010 )
+                leds[id].master = 1;
+            if( RxMessage.Data[2] & 0b00000100 )
+                leds[id].master = 2;
+            if( RxMessage.Data[2] & 0b00001000 )
+                leds[id].master = 3;
+        }
         else
         {
             leds[id].std_time = (RxMessage.Data[2]<<8)+RxMessage.Data[3];
@@ -257,14 +288,28 @@ void prozess_can_it(void)
             //LED
             else if( getTyp(RxMessage.ExtId) == CAN_PROTO_LED )
             {
-                if( RxMessage.Data[0] & 0b00000001 )
-                    set_led_from_can_msg(RxMessage, 0);
-                if( RxMessage.Data[0] & 0b00000010 )
-                    set_led_from_can_msg(RxMessage, 1);
-                if( RxMessage.Data[0] & 0b00000100 )
-                    set_led_from_can_msg(RxMessage, 2);
-                if( RxMessage.Data[0] & 0b00001000 )
-                    set_led_from_can_msg(RxMessage, 3);
+                if(RxMessage.Data[1] == 0) //get the current color
+                {
+                    if( RxMessage.Data[0] & 0b00000001 )
+                        send_color(0);
+                    if( RxMessage.Data[0] & 0b00000010 )
+                        send_color(1);
+                    if( RxMessage.Data[0] & 0b00000100 )
+                        send_color(2);
+                    if( RxMessage.Data[0] & 0b00001000 )
+                        send_color(3);
+                }
+                else //change the color
+                {
+                    if( RxMessage.Data[0] & 0b00000001 )
+                        set_led_from_can_msg(RxMessage, 0);
+                    if( RxMessage.Data[0] & 0b00000010 )
+                        set_led_from_can_msg(RxMessage, 1);
+                    if( RxMessage.Data[0] & 0b00000100 )
+                        set_led_from_can_msg(RxMessage, 2);
+                    if( RxMessage.Data[0] & 0b00001000 )
+                        set_led_from_can_msg(RxMessage, 3);
+                }
             }
         } //end an mich | broadcast
     } //end else extended
