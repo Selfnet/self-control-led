@@ -151,7 +151,7 @@ void setTyp(uint32_t *ExtId , int recipient)
 // SENDER0 | SENDER1 | EMPFAENGER0 | EMPFAENGER1 | TYPE | SEND-REQUEST | DATA0 - DATA7
 
 
-void send_color(int id)
+void send_color(CanRxMsg RxMessage, int id)
 {
     CanTxMsg TxMessage;
     TxMessage.IDE = CAN_ID_EXT;                                 //immer extended can frames
@@ -161,12 +161,14 @@ void send_color(int id)
     TxMessage.ExtId |= setRecipient( getSender(RxMessage.ExtId) );
     TxMessage.RTR = CAN_RTR_Data;
 
-    TxMessage.DLC = 5;
-    TxMessage.Data[0] = leds[id].mode;
-    TxMessage.Data[1] = leds[id].color_mode;
-    TxMessage.Data[2] = leds[id].r;
-    TxMessage.Data[3] = leds[id].g;
-    TxMessage.Data[4] = leds[id].b;
+    TxMessage.DLC = 6; 
+    TxMessage.Data[0] = leds[id].color_mode << 4 || id; //LedID and leds[id].color_mode;
+    TxMessage.Data[1] = 0xFE; // GETCOLORMODE 
+
+    TxMessage.Data[2] = leds[id].mode;
+    TxMessage.Data[3] = leds[id].r;
+    TxMessage.Data[4] = leds[id].g;
+    TxMessage.Data[5] = leds[id].b;
 
     CAN_Transmit(CAN1, &TxMessage);
 }
@@ -288,16 +290,16 @@ void prozess_can_it(void)
             //LED
             else if( getTyp(RxMessage.ExtId) == CAN_PROTO_LED )
             {
-                if(RxMessage.Data[1] == 0) //get the current color
+                if(RxMessage.Data[1] == 0xFF) //get the current color
                 {
                     if( RxMessage.Data[0] & 0b00000001 )
-                        send_color(0);
+                        send_color(RxMessage, 0);
                     if( RxMessage.Data[0] & 0b00000010 )
-                        send_color(1);
+                        send_color(RxMessage, 1);
                     if( RxMessage.Data[0] & 0b00000100 )
-                        send_color(2);
+                        send_color(RxMessage, 2);
                     if( RxMessage.Data[0] & 0b00001000 )
-                        send_color(3);
+                        send_color(RxMessage, 3);
                 }
                 else //change the color
                 {
