@@ -4,9 +4,16 @@
 
 #define CAN_ID 0x11
 
+#include "stm32f10x.h"
+
 // Can functions
 void CAN_config(void);
 void prozess_can_it(void);
+
+void CAN_Send(CanTxMsg *TxMessage);
+
+CanTxMsg* can_puffer[10];
+char can_puffer_cnt;
 
 /*int getSender(uint32_t ExtId);
 int getRecipient(uint32_t ExtId);
@@ -14,6 +21,8 @@ int getTyp(uint32_t ExtId);
 void setSender(uint32_t *ExtId , int recipient);
 void setRecipient(uint32_t *ExtId , int recipient);
 void setTyp(uint32_t *ExtId , int recipient); */
+
+
 
 
 #define getSender(ExtId)    ( ( (ExtId)     & 0xff ) )
@@ -36,5 +45,8 @@ void setTyp(uint32_t *ExtId , int recipient); */
 
 // ext id =  0b10 100  0*24
 #define CAN_EXT_ID 0x14000000
+
+//counter für led timer
+volatile int led_count;
 
 #endif

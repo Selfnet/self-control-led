@@ -1,9 +1,8 @@
 
 #include "led_pwm.h"
-
 #include <string.h>
 
-RGB_Led_State leds[4];
+//RGB_Led_State leds[4];
 
 void init_timer(void)
 {
@@ -20,7 +19,7 @@ void init_timer(void)
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 
-    /* Compute the prescaler value */
+    /* Compute the prescaler value 1x pro sek*/
     uint16_t PrescalerValue = (uint16_t) (SystemCoreClock / 1000) - 1;
 
     /* Time base configuration */
@@ -287,8 +286,11 @@ void led_step(RGB_Led_State *led)
     {
         if(led->time == 0)
         {
+            //data = 1 --> 
+            //led->data = 2; //stop fading - wait for master to finish
+
             //wait for master
-            if(leds[led->master].data == 2 || leds[led->master].data == 1) // master fertig kann los gehn
+            if(leds[led->master].data != 1) // master fertig kann los gehn
             {
                 //set color
                 led->data = 1;
@@ -302,7 +304,7 @@ void led_step(RGB_Led_State *led)
             }
         }
 
-        if(led->data == 1)
+        if(led->data == 1) //fading enabled
         {
             led->r += led->change_r;
             led->g += led->change_g;
@@ -310,6 +312,7 @@ void led_step(RGB_Led_State *led)
             led->time++;
         }
 
+        //we reached our goal
         if(led->time >= led->std_time)
         {
             led->time = 0;

@@ -88,6 +88,13 @@ void CAN_config(void)
 }
 
 
+void CAN_Send(CanTxMsg *TxMessage)
+{
+//CAN_TxStatus_NoMailBox
+    if(CAN_Transmit(CAN1, TxMessage) == CAN_TxStatus_NoMailBox && can_puffer_cnt < 10)
+        can_puffer[++can_puffer_cnt] = TxMessage;
+}
+
 /*
 Field name	                        Length (bits)	Purpose
 Start-of-frame	                    1	Denotes the start of frame transmission
@@ -162,7 +169,8 @@ void send_color(CanRxMsg RxMessage, int id)
     TxMessage.RTR = CAN_RTR_Data;
 
     TxMessage.DLC = 6; 
-    TxMessage.Data[0] = leds[id].color_mode << 4 || id; //LedID and leds[id].color_mode;
+    TxMessage.Data[0] = (leds[id].color_mode << 4) |  1 << id; //LedID and leds[id].color_mode;
+
     TxMessage.Data[1] = 0xFE; // GETCOLORMODE 
 
     TxMessage.Data[2] = leds[id].mode;
@@ -170,7 +178,7 @@ void send_color(CanRxMsg RxMessage, int id)
     TxMessage.Data[4] = leds[id].g;
     TxMessage.Data[5] = leds[id].b;
 
-    CAN_Transmit(CAN1, &TxMessage);
+    CAN_Send(&TxMessage);
 }
 
 void send_pong(CanRxMsg RxMessage)
@@ -193,7 +201,7 @@ void send_pong(CanRxMsg RxMessage)
         {
             TxMessage.Data[i] = RxMessage.Data[i];
         }
-        CAN_Transmit(CAN1, &TxMessage);
+        CAN_Send(&TxMessage);
     }
 }
 
@@ -201,8 +209,8 @@ void set_led_from_can_msg(CanRxMsg RxMessage, int id)
 {
     if(0 <= id && id <= 3)
     {
+        led_count = 0;
         leds[id].mode = RxMessage.Data[1];
-
         leds[id].color_mode = RxMessage.Data[0] >> 4;
 
         if( leds[id].mode == 1 ) //master - slave mode
@@ -225,6 +233,7 @@ void set_led_from_can_msg(CanRxMsg RxMessage, int id)
                 leds[id].r = RxMessage.Data[4];
                 leds[id].g = RxMessage.Data[5];
                 leds[id].b = RxMessage.Data[6];
+                leds[id].data = 0;
             }
             else if( leds[id].mode == 3 || leds[id].mode == 6 ) //fade to color | color strobe
             {
@@ -248,8 +257,16 @@ void set_led_from_can_msg(CanRxMsg RxMessage, int id)
 //            else if( leds[id].mode == 7 ); //circle
             else if( leds[id].mode == 8 ) // fade to master (start when master is ready)
             {
-                leds[id].master = RxMessage.Data[4];
+                if( RxMessage.Data[4] & 0b00000001 )
+                    leds[id].master = 0;
+                if( RxMessage.Data[4] & 0b00000010 )
+                    leds[id].master = 1;
+                if( RxMessage.Data[4] & 0b00000100 )
+                    leds[id].master = 2;
+                if( RxMessage.Data[4] & 0b00001000 )
+                    leds[id].master = 3;
                 leds[id].time = 0;
+//                leds[ RxMessage.Data[4] ].mode = 0;
             }
 //            else if( leds[id].mode == 9 ); // police
 

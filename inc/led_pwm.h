@@ -37,8 +37,7 @@ struct rgb_led_state_t {
 
 typedef struct rgb_led_state_t RGB_Led_State;
 
-//extern RGB_Led_State led;
-extern RGB_Led_State leds[4];
+volatile  RGB_Led_State leds[4];
 
 void enable_PWM(void);
 void _update_PWM(void);

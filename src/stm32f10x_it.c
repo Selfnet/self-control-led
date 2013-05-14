@@ -188,7 +188,7 @@ void SysTick_Handler(void)
 
 
 /*******************************************************************************
-* Function Name  : TIM3_IRQHandler
+* Function Name  : TIM1_IRQHandler
 * Description    : This function handles TIM2 global interrupt request.
 * Input          : None
 * Output         : None
@@ -196,14 +196,12 @@ void SysTick_Handler(void)
 * Return         : None
 *******************************************************************************/
 #include <stdlib.h>
-
-// Light modes:
-// 
-
-
+#include "clock.h"
 void TIM1_UP_IRQHandler(void)
 {
     TIM_ClearITPendingBit(TIM1, TIM_IT_Update );
+
+    clock_tick();
 
     if(leds[0].mode == 7) //circle
     {

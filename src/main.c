@@ -22,6 +22,10 @@
 #include "includes.h"
 #include "io-helper.h" //dirks button+led func
 
+#include "timer.h"
+
+#include <stdio.h>
+
 /*#include "usb_core.h"
 #include "usbd_usr.h"
 #include "usbd_core.h"
@@ -92,20 +96,88 @@ int main(void)
     // initialize CAN-Bus and enable CAN Interrupts
     CAN_config();
 
-    // initialize USB VirtualComPort
-    /*uint8_t send_string[50];
-    USBD_Init(&USB_OTG_dev,
-        USB_OTG_FS_CORE_ID,
-        &USR_desc,
-        &USBD_CDC_cb,
-        &USR_cb);
-    // send greetings to the COM-Port ;)
-    VCP_DataTx("Hallo!\n", 7);*/
+    struct timer sec_timer;
+    timer_set(&sec_timer, TICKS_PER_SECOND); //1x pro sec wird gesynced
+    led_count = 0;
 
     //Main loop, ohne ethernet gibts hir nix zu tun ;)
     while(1)
     {
-        //HSV2RGB( 0.0, .9, .2);
+        if( can_puffer_cnt > 0 )
+        {
+            if((CAN1->TSR&CAN_TSR_TME0) == CAN_TSR_TME0 && can_puffer_cnt > 0)
+                CAN_Transmit(CAN1, can_puffer[can_puffer_cnt--]);
+
+            if((CAN1->TSR&CAN_TSR_TME1) == CAN_TSR_TME1 && can_puffer_cnt > 0)
+                CAN_Transmit(CAN1, can_puffer[can_puffer_cnt--]);
+
+            if((CAN1->TSR&CAN_TSR_TME2) == CAN_TSR_TME2 && can_puffer_cnt > 0)
+                CAN_Transmit(CAN1, can_puffer[can_puffer_cnt--]);
+        }
+
+        if(timer_expired(&sec_timer))
+        {
+            timer_reset(&sec_timer);
+
+            if(led_count < 4200000000) //soll keinen ueberlauf geben
+                led_count++;
+
+            if(led_count % 10 == 0) //send current color and led_count
+            {
+                CanTxMsg TxMessage;
+                TxMessage.IDE = CAN_ID_EXT;                                 //immer extended can frames
+                TxMessage.ExtId = CAN_EXT_ID;                               //default ID setzen
+                TxMessage.ExtId |= setSender( NODE_CAN_ID );
+                TxMessage.ExtId |= setType( CAN_PROTO_LED );
+                TxMessage.ExtId |= setRecipient( 0x20 );
+                TxMessage.RTR = CAN_RTR_Data;
+
+                TxMessage.DLC = 8; 
+                TxMessage.Data[0] = leds[0].color_mode << 4 | 1; //LedID and leds[id].color_mode;
+                TxMessage.Data[1] = 0xFE; // GETCOLORMODE 
+
+                TxMessage.Data[2] = leds[0].mode;
+                TxMessage.Data[3] = leds[0].r;
+                TxMessage.Data[4] = leds[0].g;
+                TxMessage.Data[5] = leds[0].b;
+
+                TxMessage.Data[6] = 0xFF;
+                TxMessage.Data[7] = led_count;
+                CAN_Send(&TxMessage);
+            }
+
+            if(led_count == 30*60) //random fade nach 30min
+            {
+                leds[0].mode = 5;
+                leds[0].std_time = 50;
+                leds[0].change_r = (float)((rand()% 5+1))/leds[0].std_time;
+                leds[0].change_g = (float)((rand()% 5+1))/leds[0].std_time;
+                leds[0].change_b = (float)((rand()% 5+1))/leds[0].std_time;
+
+                leds[1].mode = 1;
+                leds[1].master = 0;
+
+                leds[2].mode = 1;
+                leds[2].master = 0;
+
+                leds[3].mode = 1;
+                leds[3].master = 0;
+            }
+            else if(led_count == 60*60) //fade to black nach 1h
+            {
+                leds[0].std_time = 5000;
+                leds[0].mode = 3;
+                leds[0].time = 0;
+                leds[0].target_r = 0;
+                leds[0].target_g = 0;
+                leds[0].change_b = 0;
+            }
+            /*else if(led_count == 60*60) //aus nach 1h
+            {
+                ;// ist schon zu schwarz gefaded...
+            }*/
+        }
+
     }
 }
 
