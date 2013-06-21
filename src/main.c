@@ -177,7 +177,6 @@ int main(void)
                 ;// ist schon zu schwarz gefaded...
             }*/
         }
-
     }
 }
 
